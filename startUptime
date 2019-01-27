@@ -1,0 +1,2 @@
+#!/bin/sh
+nohup /home/damiandavila/webapps/reputation_mon/bin/node /home/damiandavila/webapps/reputation_mon/uptime_mon.js > /dev/null 2>&1 &

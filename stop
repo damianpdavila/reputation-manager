@@ -1,0 +1,2 @@
+#!/bin/sh
+/usr/bin/pkill -f /home/damiandavila/webapps/reputation_mon/bin/node && rm -f /home/damiandavila/webapps/reputation_mon/run/node.pid

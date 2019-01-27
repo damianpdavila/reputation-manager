@@ -1,0 +1,5 @@
+#!/bin/sh
+/sbin/pidof /home/damiandavila/webapps/reputation_mon/bin/node > /dev/null 2>&1 && exit 0
+mkdir -p /home/damiandavila/webapps/reputation_mon/run
+nohup /home/damiandavila/webapps/reputation_mon/bin/node /home/damiandavila/webapps/reputation_mon/monitor-reviews.js > /dev/null 2>&1 &
+/sbin/pidof /home/damiandavila/webapps/reputation_mon/bin/node > /home/damiandavila/webapps/reputation_mon/run/node.pid

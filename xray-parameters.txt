@@ -1,0 +1,18 @@
+var Xray = require('x-ray');
+var xray = Xray();
+ 
+xray('https://www.tripadvisor.com/Restaurant_Review-g34548-d2518839-Reviews-Blue_Ginger-Pembroke_Pines_Florida.html', {
+  bizRating: 'span.sprite-rating_rr img@alt',
+  reviewCount: 'div.rs.rating a.more',
+  reviews: xray('.review.basic_review', [{
+    rating: xray('span.sprite-rating_s img@alt'),
+    date: xray('div.rating.reviewItemInline', 'span.ratingDate.relativeDate@title'),
+    dateVerbose: xray('div.rating.reviewItemInline','span.ratingDate'),
+    title: xray('div.quote', 'span.noQuotes'),
+    description: xray('div.entry', 'p.partial_entry')
+  }])
+})(function(err, obj) {
+    if (err){console.log(err);}
+    else {console.log(obj);}
+});
+

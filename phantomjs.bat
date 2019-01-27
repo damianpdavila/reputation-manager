@@ -1,0 +1,1 @@
+"C:\Users\Damian\Documents\Work - general\Business opps\SMB Auto Marketing\Thai Select promotion\reputation manager\node_modules\phantomjs-prebuilt\lib\phantom\bin\phantomjs.exe" %1 %2 %3 %4 %5
