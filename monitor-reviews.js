@@ -61,7 +61,7 @@ var xray = Xray({
   });
 
 var GoogleLocations = require('google-locations');
-var locations = new GoogleLocations('AIzaSyCkSNYioETcCDZPvWZ8meZLpeEzA4rUqAE');
+var locations = new GoogleLocations('');
 
 // 09072018: attempting to re-enable Nightmare as a potential solution has been found -- and PhantomJS no longer actively supported
 //  var path = require('path');
@@ -920,12 +920,12 @@ function setupTransport (nodemailer) {
 
   // create reusable transporter object using the default SMTP transport 
   var smtpConfig = {
-      host: 'smtp.webfaction.com',
+      host: '',
       port: 465,
       secure: true, // use SSL 
       auth: {
-          user: 'damianrevoo',
-          pass: 'd03p29d64'
+          user: '',
+          pass: ''
       }
   };
   return nodemailer.createTransport(smtpConfig);
