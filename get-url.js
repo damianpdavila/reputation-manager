@@ -3,7 +3,12 @@ var request = require("request"),
   // url = "http://www.wunderground.com/cgi-bin/findweather/getForecast?&query=" + 02888;
   // url = "https://query.yahooapis.com/v1/public/yql?q=select wind from weather.forecast where woeid in (select woeid from geo.places(1) where text='chicago, il')&format=json&callback=";
   url = "http://localhost:8080/api/v1.0/?dummy=dummy";
-  
+
+  console.log(`Version: ${process.version}`);
+  console.log(process.report.getReport());
+
+return;
+
 request(url, function (error, response, body) {
   if (!error) {
     // var $ = cheerio.load(body),
