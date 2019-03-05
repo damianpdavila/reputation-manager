@@ -1,12 +1,21 @@
-var Promise = require('bluebird');
-var request = require("request");
+/**
+ * Client uptime monitoring component of One Hand Off application.  Runs independently as a standalone process
+ * on the server and sends periodic "client site is up" emails to OHO support.
+ * 
+ * Per-client site URLs are passed in ./uptime-config.json
+ * 
+ * @fileOverview    Checks if client sites are up
+ * @author          Damian Davila (Moventis, LLC)
+ * @version         1.1
+ */
+var version_number = "1.1";
 
-var nodemailer = require('nodemailer');
-var transporter = setupTransport(nodemailer);
-   
 var fs = require('fs');
 var configJson = __dirname + '/uptime-config.json';
 var listConfig = require( configJson );
+
+var appConfigJson = __dirname + '/app-config.json';
+var appConfig = require( appConfigJson );
 
 //  Server logging
 var logFileBase = __dirname + '/logs/logFileUptime' 
@@ -17,6 +26,13 @@ var log = function(msg) {
     console.log(d.toUTCString() + ' :: ' + msg);
     fs.appendFileSync(logFile, d.toUTCString() + ' :: ' + msg + '\n');
 };
+
+var Promise = require('bluebird');
+var request = require("request");
+
+var nodemailer = require('nodemailer');
+var transporter = setupTransport(nodemailer);
+
 rotateLogs();
 
 var Xray = require('x-ray');
@@ -164,19 +180,18 @@ function alertError (transporter, errMessage) {
 // ===============================
 function setupTransport (nodemailer) {
 
-  // create reusable transporter object using the default SMTP transport 
-  var smtpConfig = {
-      host: 'smtp.webfaction.com',
-      port: 465,
-      secure: true, // use SSL 
-      auth: {
-          user: 'damianrevoo',
-          pass: 'd03p29d64'
-      }
-  };
-  return nodemailer.createTransport(smtpConfig);
-}; 
-
+    // create reusable transporter object using the default SMTP transport 
+    var smtpConfig = {
+        host: appConfig.email.smtpHost,
+        port: 465,
+        secure: true, // use SSL 
+        auth: {
+            user: appConfig.email.smtpUserid,
+            pass: appConfig.email.smtpPassword
+        }
+    };
+    return nodemailer.createTransport(smtpConfig);
+  }; 
 
 // ===============================
 //  Do log file backups

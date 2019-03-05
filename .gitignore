@@ -6,6 +6,10 @@ facebook-*/
 google*/
 temp/
 playground/
+review-config.json
+review-config-bkup.json
+app-config.json
+uptime-config.json
 
 # Logs
 logs
