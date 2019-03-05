@@ -74,7 +74,7 @@ var xray = Xray({
 //  Process the target URLs
 // ===============================
 function mainLoop() {
-    log("Starting mainLoop()");
+    log("Starting mainLoop(); version: " + version_number);
 
     // === Cycle through monitored sites
     var fetchTitle;
@@ -102,6 +102,7 @@ function mainLoop() {
                     }
                 }
         });
+    log("Ending mainLoop(); version: " + version_number);
 };
 
 mainLoop();
