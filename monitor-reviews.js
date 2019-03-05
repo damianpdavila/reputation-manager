@@ -7,19 +7,17 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5
+ * @version         1.5.1
  */
+var version_number = "1.5.1";
 
-var Promise = require('bluebird');
-var request = require("request");
-
-var nodemailer = require('nodemailer');
-var transporter = setupTransport(nodemailer);
-   
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
 var configJsonBkup = __dirname + '/review-config-bkup.json';
 var listConfig = require( configJson );
+
+var appConfigJson = __dirname + '/app-config.json';
+var appConfig = require( appConfigJson );
 
 //  Server logging
 var logFileBase = __dirname + '/logs/logFile' 
@@ -34,6 +32,13 @@ var log = function(msg) {
         alertError(transporter, "Error writing to log file. Error:" + error);
     }
 };
+
+var Promise = require('bluebird');
+var request = require("request");
+
+var nodemailer = require('nodemailer');
+var transporter = setupTransport(nodemailer);
+   
 rotateLogs();
 
 var Xray = require('x-ray');
@@ -61,7 +66,7 @@ var xray = Xray({
   });
 
 var GoogleLocations = require('google-locations');
-var locations = new GoogleLocations('');
+var locations = new GoogleLocations(appConfig.google.locationsApiKey);
 
 // 09072018: attempting to re-enable Nightmare as a potential solution has been found -- and PhantomJS no longer actively supported
 //  var path = require('path');
@@ -113,8 +118,8 @@ var msPerDay = 24*60*60*1000;  // milliseconds in a day
 var lastProcessDate = new Date();
 
 function mainLoop() {
-    log("Starting mainLoop(); lastClientProcessed is: " + lastClientProcessed);
-    sendRunningEmail( transporter, uptimeEmail, "Starting mainLoop(); lastClientProcessed is: " + lastClientProcessed );
+    log("Starting mainLoop(), running version: " + version_number + "; lastClientProcessed is: " + lastClientProcessed);
+    sendRunningEmail( transporter, uptimeEmail, "Starting mainLoop(), running version: " + version_number + "; lastClientProcessed is: " + lastClientProcessed );
 
 	// === Get next client index
 	var thisClient = ++lastClientProcessed;
@@ -920,12 +925,12 @@ function setupTransport (nodemailer) {
 
   // create reusable transporter object using the default SMTP transport 
   var smtpConfig = {
-      host: '',
+      host: appConfig.email.smtpHost,
       port: 465,
       secure: true, // use SSL 
       auth: {
-          user: '',
-          pass: ''
+          user: appConfig.email.smtpUserid,
+          pass: appConfig.email.smtpPassword
       }
   };
   return nodemailer.createTransport(smtpConfig);
