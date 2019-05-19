@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.1
+ * @version         1.5.2
  */
-var version_number = "1.5.1";
+var version_number = "1.5.2";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -76,8 +76,18 @@ var locations = new GoogleLocations(appConfig.google.locationsApiKey);
 
 // == Nightmare won't work on Webfaction (CentOS) servers, though works like charm on Windows :(
 // 09072018: attempting to re-enable as a potential solution has been found -- and PhantomJS no longer actively supported
-var Nightmare = require('nightmare');
+// var Nightmare = require('nightmare');
 
+/** 05182019:  Using Puppeteer browser automation instead of PhantomJS and Nightmare for scraping Facebook
+ *  Both of those stopped working, probably due to Facebook changes.
+ *  Puppeteer uses Chromium and seems to work (at least so far).
+ */
+const puppeteer = require('puppeteer');
+let browser = null;
+let pages = null;
+let page = null;
+let facebookLogin;
+let facebookData;
 
 var captureFBload = __dirname + '/facebook-load.png';
 var captureFBlogin = __dirname + '/facebook-post-login.png';
@@ -166,6 +176,8 @@ function mainLoop() {
 };
 
 mainLoop();
+
+log("Exited mainLoop()");
 
 // ===============================  
 //  Process client config's
@@ -509,47 +521,60 @@ function fetchGoogleReviewCount(url, bizName, reviewData) {
 };
 function fetchFacebookReviews(url) {
 
-    //09072018: re-enabling Nightmare because may have a solution for CentOS
-
     return new Promise(function(resolve, reject){
         /** Load Facebook review page, bypass login if necessary, click to sort by most recent, capture the html */
+    
+        (async function () {
 
-        /**
-         * 12/7/2018: Nightmare seems to be hanging after 15+ days of reputation_mon running.
-         * Will end and restart the instance with each run to see if it helps as a simple band-aid.
-         */
-        const nightmare = new Nightmare();
-        //const nightmare = Nightmare({ show: true }); //TESTING
-
+            /** Try to minimize Facebook logins by keeping one browser open as long as possible.
+             *  Hopefully reduce risk of Facebook locking out the ID or forcing other hurdles as in the past.
+             */
+            if (browser == null || ! browser.isConnected()) {
+                //browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+                browser = await puppeteer.launch({headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+                pages = await browser.pages();    
+                page = pages[0];
+                log("FACEBOOK:  Created new Puppeteer browser");
+            }
         
-        nightmare
-            .goto(url)
-            .viewport(1280,2000)
-            .wait(2000)
-            .evaluate(function(){
-                if (document.querySelector('form#login_form input#email') != null){
-                    document.querySelector('form#login_form input#email').value = 'ohoapp@onehandoff.com';
-                    document.querySelector('form#login_form input#pass').value = 'd03p29d64';
-                    document.querySelector('#login_form').submit();
-                }
-                return true;
-            })
-            .wait(3000)
-            .goto(url)
-            .wait('a>span>div')
-            .evaluate(function(){
-                var divs = document.querySelectorAll('a>span>div');
-                for (var i = 0; i < divs.length; i++) {
-                    var index = divs[i].innerHTML.indexOf('MOST RECENT');
-                    if (index != -1) {
-                        divs[i].click();
-                        break;
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
+            await page.setViewport({width: 1280, height: 2000});
+        
+            await page.goto(url);
+            // Check for login
+            facebookLogin = null;
+            facebookLogin = await page.$('form#login_form input#email');
+        
+            if (facebookLogin != null) {
+                
+                await page.waitForSelector('form#login_form input#email');
+                await page.type('form#login_form input#email', 'ohoapp@onehandoff.com');
+                await page.waitForSelector('form#login_form input#pass');
+                await page.type('form#login_form input#pass', 'd03p29d64oho');
+                await page.click('#login_form input[type="submit"]');
+                await page.waitForNavigation();
+                await page.goto(url);
+                log("FACEBOOK:  Logged into Facebook");            
+            }
+        
+            await page.waitForSelector('a>span>div');
+        
+            await Promise.all([
+                //page.waitForNavigation(),   // The promise resolves after navigation has finished
+                page.evaluate(function(){   // Clicking the link will indirectly cause a navigation
+                    var divs = document.querySelectorAll('a>span>div');
+                    for (var i = 0; i < divs.length; i++) {
+                        var index = divs[i].innerHTML.indexOf('MOST RECENT');
+                        if (index != -1) {
+                            divs[i].click();
+                            break;
+                        }
                     }
-                }
-                return divs[i].outerHTML;                  
-            })
-            .wait('#recommendations_tab_main_feed div.userContentWrapper')
-            .evaluate(function(){
+                    return divs[i].outerHTML;                  
+                })
+            ]);
+            await page.waitForSelector('#recommendations_tab_main_feed div.userContentWrapper');
+            facebookData = await page.evaluate(function(){
                 var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
             
                 reviewData.rvwData.bizRating = document.querySelector('div._672g').textContent + ' of 5 stars';
@@ -576,9 +601,9 @@ function fetchFacebookReviews(url) {
                         var a_review = {};
                         divs[i].querySelector('span.fcg span.fwb .profileLink') == null ? a_review.author = 'n/a' : a_review.author = divs[i].querySelector('span.fcg span.fwb .profileLink').textContent;
                         divs[i].querySelector('span span a abbr[data-utime]') == null ? a_review.date = '' : a_review.date = parseInt(divs[i].querySelector('span span a abbr[data-utime]').getAttribute('data-utime'), 10) * 1000;  
-    
+        
                         // determine if review is a numerical star rating or a yes/no recommendation
-    
+        
                         // NOTE: the recomm/not recomm logic is currently based on literal:  "recommends", "recommended", "doesn't Recommend"; crappy but no other reliable way
                         
                         if (divs[i].querySelector('span.fcg > span.fwb + i') != null) {
@@ -605,32 +630,30 @@ function fetchFacebookReviews(url) {
                         }                        
                         reviewData.rvwData.reviews.push(a_review);
                     }
-    
+        
                     return reviewData;
                 } else {
                     alertError (transporter, "Error: fetchFacebookReviews(). Not in most recent order");
                     return {RC: 1, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
                 }
-            })
-            /** 12/7/2018: Nightmare seems to be hanging after 15+ days of reputation_mon running.
-             *  Will end and restart the instance with each run to see if it helps as a simple band-aid.
-             *  09072018:  attempt to re-use the Nightmare instance between runs; do .end() when exiting main() instead of here
-             */
-            .end()
-            .then(function(reviews){
-                if (reviews.RC > 0 ) {
-                    log('Error: Scraping reviews failed. RC:' + reviews.RC); 
-                    alertError(transporter, 'Error: Scraping reviews failed. RC:' + reviews.RC);
-                }
-                //log("resolve fetchFacebookReviews, reviewData=" + rvwData); //TESTING
-                resolve(reviews.rvwData);
-            })      
-            .catch(function (error) {
-                log('Nightmare error: ' + error.name + ' Details: ' + error.message);
-                alertError(transporter, 'Nightmare Facebook error: ' + error.name + ' Details: ' + error.message);
+            });
+            return facebookData;
+            
+        })().then(reviews => {
+            if (reviews.RC > 0 ) {
+                log('Error: Scraping reviews failed. RC:' + reviews.RC); 
+                alertError(transporter, 'Error: Scraping reviews failed. RC:' + reviews.RC);
+            }
+            //log("resolve fetchFacebookReviews, reviewData=" + rvwData); //TESTING
+            resolve(reviews.rvwData);
+        })      
+        .catch(error => {
+            if (error instanceof puppeteer.errors.TimeoutError) {
+                log('Puppeteer error: ' + error.name + ' Details: ' + error.message);
+                alertError(transporter, 'Puppeteer Facebook error: ' + error.name + ' Details: ' + error.message);
                 resolve({bizRating: "", reviewCount: "", reviews: []});
-            });                        
-                  
+            } 
+        });
     });
     
 };
