@@ -1,6 +1,6 @@
 {
-  "name": "express-parameters",
-  "main": "server.js",
+  "name": "reputation-manager",
+  "main": "monitor-reviews.js",
   "dependencies": {
     "bluebird": "^3.5.2",
     "google-locations": "^0.2.0",
@@ -8,6 +8,7 @@
     "nodemailer": "^4.0.0",
     "npm": "^6.4.1",
     "phantomjs-prebuilt": "^2.1.16",
+    "puppeteer": "^1.16.0",
     "request": "^2.88.0",
     "x-ray": "^2.3.3"
   }
