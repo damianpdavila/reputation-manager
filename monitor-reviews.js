@@ -277,12 +277,38 @@ function fetchReviews( siteName, url, afterDate, bizName, bizAddress, clientConf
                 .then( function() {
                     return resolve(true);
                 })
+                .catch(TypeError, function(err){
+                    // handle new Yelp page format #2
+                    return fetchReviews("yelp2", url, afterDate, bizName, bizAddress, clientConfig, clientIndex);
+                })
+                .then( function() {
+                    return resolve(true);
+                })
                 .catch(function(err){
                     alertError(transporter, "Error: fetchReviews() .catch, site:" + siteName + "error:" + err);
                     objReviewsPerSite.rvwSitetitle = siteName;
                     return resolve(objReviewsPerSite);
                 });
-        } else if (siteName == 'tripadvisor') {
+        } 
+        if (siteName == 'yelp2') {
+            fetchYelpReviewsFormat2(url)
+                .then(function(reviewData){
+                    // set site name back so remaining logic works BAU
+                    return (formatReviewData(url, 'yelp', afterDate, reviewData));
+                })
+                .then(function(formattedReviews){
+                    return (processReviews( formattedReviews, clientConfig, clientIndex ));
+                })
+                .then( function() {
+                    return resolve(true);
+                })
+                .catch(function(err){
+                    alertError(transporter, "Error: fetchReviews() .catch, site:" + siteName + "error:" + err);
+                    objReviewsPerSite.rvwSitetitle = siteName;
+                    return resolve(objReviewsPerSite);
+                });
+        } 
+        if (siteName == 'tripadvisor') {
             fetchTripadvisorReviews(url)
                 .then(function(reviewData){
                     return (formatReviewData(url, siteName, afterDate, reviewData));
@@ -298,7 +324,8 @@ function fetchReviews( siteName, url, afterDate, bizName, bizAddress, clientConf
                     objReviewsPerSite.rvwSitetitle = siteName;
                     return resolve(objReviewsPerSite);
                 });
-        } else if (siteName == 'facebook') {
+        }
+        if (siteName == 'facebook') {
             fetchFacebookReviews(url)
                 .then(function(reviewData){
                     return (formatReviewData(url, siteName, afterDate, reviewData));
@@ -314,7 +341,8 @@ function fetchReviews( siteName, url, afterDate, bizName, bizAddress, clientConf
                     objReviewsPerSite.rvwSitetitle = siteName;
                     return resolve(objReviewsPerSite);
                 });
-        } else if (siteName == 'google') {
+        }
+        if (siteName == 'google') {
             fetchGoogleReviews(url, bizName, bizAddress)
                 .then(function(reviewData){
                     return (fetchGoogleReviewCount(url, siteName, reviewData));
@@ -333,13 +361,16 @@ function fetchReviews( siteName, url, afterDate, bizName, bizAddress, clientConf
                     objReviewsPerSite.rvwSitetitle = siteName;
                     return resolve(objReviewsPerSite);
                 });
-        } else {
+        }
+        /*
+        else {
             alertError (transporter, "Client config error; review site name not valid. Site: " + siteName + " url: " + url + " Name: " + bizName);
             objReviewsPerSite.rvwSitetitle = siteName;
             objReviewsPerSite.rvwCount = 0;
             objReviewsPerSite.rvwText = "";
             resolve(objReviewsPerSite);
-        }                               
+        } 
+        */                              
     });
 };
 // ===============================  
@@ -400,6 +431,7 @@ function fetchYelpReviews(url) {
                 log(err);
                 alertError (transporter, "Error: fetchYelpReviews(). Msg: " + err );
             }
+
             try {                
                 //log("resolve fetchYelpReviews, reviewData=" + reviewData); //TESTING
                 // Standardize the summary rating literals
@@ -416,12 +448,120 @@ function fetchYelpReviews(url) {
                     var year = parts[2].trim().slice(0,4);
                     element.date = year + '-' + month + '-' + day  + 'T05:00:00.000';
                 });
+                resolve(reviewData);
             } catch (error) {
-                alertError (transporter, "Error: fetchYelpReviews(). Uncaught exception: " + error );
+                // Usually errors are due to scraping unexpected page format or partial page.
+                // Log error but set up to retry the alternative format scrape.
+                //alertError (transporter, "Error: fetchYelpReviews(). Uncaught exception: " + error );
+                log("Warning: fetchYelpReviews() error. Will now retry with format 2. Msg: " + error);
                 reviewData = {bizRating: "", reviewCount: "", reviews: []};
+                reject(new TypeError());
             }
 
-            resolve(reviewData);
+        });
+    });
+};
+function fetchYelpReviewsFormat2(url) {
+    return new Promise(function(resolve, reject){
+        // Load Yelp review page, ensure the page elements are loaded, capture the html
+
+        (async function () {
+
+            //var browser = await puppeteer.launch({headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+            var browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+            var pages = await browser.pages();    
+            var page = pages[0];
+            log("YELP:  Created new Puppeteer browser");
+        
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
+            await page.setViewport({width: 1280, height: 2000});
+        
+            await page.goto(url);
+        
+            // Ensure all the review data has loaded; reviewer data tends to load last so check for that.
+            await page.waitForSelector('li.u-space-b3:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)');
+
+            var yelpData = await page.evaluate(function(){
+                var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
+            
+
+                reviewData.rvwData.bizRating = document.querySelector('div.lemon--div__373c0__1mboc.i-stars__373c0__30xVZ').getAttribute("aria-label");
+                reviewData.rvwData.reviewCount = document.querySelector('div.gutter-6__373c0__zqA5A:nth-child(2) > div:nth-child(2) > p:nth-child(1)').textContent;
+                
+                var divs = document.querySelectorAll('ul.lemon--ul__373c0__1_cxs:nth-child(4) li.u-space-b3');
+
+                if (divs.length == 0) {
+                    reviewData.RC = 2;
+                    reviewData.rvwData = "";
+                    return reviewData;
+                }
+                for (var i = 0; i < divs.length; i++) {
+                    var a_review = {};
+                    divs[i].querySelector('div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > a:nth-child(1) > span:nth-child(1)')
+                        == null ? a_review.author = 'n/a' : a_review.author = divs[i].querySelector('div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > a:nth-child(1) > span:nth-child(1)').textContent;
+                    
+                    divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)') 
+                        == null ? a_review.date = '' : a_review.date = divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)').textContent;
+    
+                    if (divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1)') != null) {
+                        // rating
+                        a_review.rating = divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1)').getAttribute("aria-label");
+                    } 
+                    else {
+                        // error
+                        a_review.rating = 'n/a';
+                    }
+                    var ps = divs[i].querySelectorAll('div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > p:nth-child(1) > span:nth-child(1)');
+                    a_review.description = '';
+                    for (var j = 0; j < ps.length; j++) {
+                        a_review.description += ps[j].textContent;    
+                    }                        
+                    reviewData.rvwData.reviews.push(a_review);
+                }
+    
+                return reviewData;
+
+            });
+            return yelpData;
+                    
+        })().then(reviews => {
+            if (reviews.RC > 0 ) {
+                log('Error: Scraping Yelp reviews failed. RC:' + reviews.RC); 
+                alertError(transporter, 'Error: Scraping Yelp reviews failed. RC:' + reviews.RC);
+            }
+            //log("resolve fetchYelpReviews, reviewData=" + rvwData); //TESTING
+            try {                
+                //log("resolve fetchYelpReviews, reviewData=" + reviewData); //TESTING
+                // Standardize the summary rating literals
+                var summaryRating = reviews.rvwData.bizRating.split(" ", 1);
+                reviews.rvwData.bizRating = summaryRating[0] + ' of 5 stars';
+                // Yelp review date is in ISO format so forces UTC timezone when string is converted to a Date object later.
+                // Adding time literal forces the Date object to correct back to original date locally, which makes user display easier later.
+                // Also need to convert from MM/DD/YYYY
+                reviews.rvwData.reviews.forEach(function (element, index, arr) {
+                    // Parse the date parts to integers
+                    var parts = element.date.trim().split("/");
+                    var day = parts[1].length > 1 ? parts[1] : "0" + parts[1] ;
+                    var month = parts[0].length > 1 ? parts[0] : "0" + parts[0] ;
+                    var year = parts[2].trim().slice(0,4);
+                    element.date = year + '-' + month + '-' + day  + 'T05:00:00.000';
+                });
+                resolve(reviews.rvwData);
+            } catch (error) {
+                alertError (transporter, "Error: fetchYelpReviewsFormat2(). Uncaught exception: " + error );
+                resolve({bizRating: "", reviewCount: "", reviews: []});
+            }
+        })      
+        .catch(error => {
+            if (error instanceof puppeteer.errors.TimeoutError) {
+                log('Puppeteer timeout error: ' + error.name + ' Details: ' + error.message);
+                alertError(transporter, 'Puppeteer Yelp timeout error: ' + error.name + ' Details: ' + error.message);
+                resolve({bizRating: "", reviewCount: "", reviews: []});
+            } else {
+                log('Puppeteer error: ' + error.name + ' Details: ' + error.message);
+                alertError(transporter, 'Puppeteer Yelp error: ' + error.name + ' Details: ' + error.message);
+                resolve({bizRating: "", reviewCount: "", reviews: []});
+            } 
         });
     });
 };
@@ -531,7 +671,7 @@ function fetchFacebookReviews(url) {
              */
             if (browser == null || ! browser.isConnected()) {
                 //browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
-                browser = await puppeteer.launch({headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+                browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
                 pages = await browser.pages();    
                 page = pages[0];
                 log("FACEBOOK:  Created new Puppeteer browser");
