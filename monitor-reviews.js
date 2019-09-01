@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.2
+ * @version         1.5.3
  */
-var version_number = "1.5.2";
+var version_number = "1.5.3";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
