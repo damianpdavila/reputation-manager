@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.3
+ * @version         1.5.4
  */
-var version_number = "1.5.3";
+var version_number = "1.5.4";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -84,10 +84,24 @@ var locations = new GoogleLocations(appConfig.google.locationsApiKey);
  */
 const puppeteer = require('puppeteer');
 let browser = null;
-let pages = null;
-let page = null;
+let pageFacebook = null;
+let pageYelp = null;
 let facebookLogin;
 let facebookData;
+
+function getBrowser(browserName) {
+    return new Promise (function(resolve, reject) {
+        if (browser == null) {
+            log("Creating new Puppeteer browser: " + browserName );
+            
+            var puppeteerBrowser = puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+            resolve(puppeteerBrowser);
+        } else {
+            log("Retrieved existing Puppeteer browser: " + browserName );
+            resolve(browser);
+        }
+    })
+}
 
 var captureFBload = __dirname + '/facebook-load.png';
 var captureFBlogin = __dirname + '/facebook-post-login.png';
@@ -175,7 +189,11 @@ function mainLoop() {
     return true;
 };
 
-mainLoop();
+getBrowser('Common')
+    .then( function(theResult) {
+        browser = theResult;
+        mainLoop();
+    });
 
 log("Exited mainLoop()");
 
@@ -467,21 +485,22 @@ function fetchYelpReviewsFormat2(url) {
 
         (async function () {
 
-            //var browser = await puppeteer.launch({headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox']});
-            var browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
-            var pages = await browser.pages();    
-            var page = pages[0];
-            log("YELP:  Created new Puppeteer browser");
+            var browserYelp = browser;
+
+            if (pageYelp == null) {
+                pageYelp = await browserYelp.newPage();
+                log("YELP:  Created new Puppeteer page");
+            }
         
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
-            await page.setViewport({width: 1280, height: 2000});
+            await pageYelp.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
+            await pageYelp.setViewport({width: 1280, height: 2000});
         
-            await page.goto(url);
+            await pageYelp.goto(url);
         
             // Ensure all the review data has loaded; reviewer data tends to load last so check for that.
-            await page.waitForSelector('li.u-space-b3:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)');
+            await pageYelp.waitForSelector('li.u-space-b3:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)');
 
-            var yelpData = await page.evaluate(function(){
+            var yelpData = await pageYelp.evaluate(function(){
                 var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
             
 
@@ -669,39 +688,39 @@ function fetchFacebookReviews(url) {
             /** Try to minimize Facebook logins by keeping one browser open as long as possible.
              *  Hopefully reduce risk of Facebook locking out the ID or forcing other hurdles as in the past.
              */
-            if (browser == null || ! browser.isConnected()) {
-                //browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
-                browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
-                pages = await browser.pages();    
-                page = pages[0];
-                log("FACEBOOK:  Created new Puppeteer browser");
+            var browserFacebook = browser;
+
+
+            if (pageFacebook == null) {
+                pageFacebook = await browserFacebook.newPage();
+                log("FACEBOOK:  Created new Puppeteer page");
             }
         
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
-            await page.setViewport({width: 1280, height: 2000});
+            await pageFacebook.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
+            await pageFacebook.setViewport({width: 1280, height: 2000});
         
-            await page.goto(url);
+            await pageFacebook.goto(url);
             // Check for login
             facebookLogin = null;
-            facebookLogin = await page.$('form#login_form input#email');
+            facebookLogin = await pageFacebook.$('form#login_form input#email');
         
             if (facebookLogin != null) {
                 
-                await page.waitForSelector('form#login_form input#email');
-                await page.type('form#login_form input#email', 'ohoapp@onehandoff.com');
-                await page.waitForSelector('form#login_form input#pass');
-                await page.type('form#login_form input#pass', 'd03p29d64oho');
-                await page.click('#login_form input[type="submit"]');
-                await page.waitForNavigation();
-                await page.goto(url);
+                await pageFacebook.waitForSelector('form#login_form input#email');
+                await pageFacebook.type('form#login_form input#email', 'ohoapp@onehandoff.com');
+                await pageFacebook.waitForSelector('form#login_form input#pass');
+                await pageFacebook.type('form#login_form input#pass', 'd03p29d64oho');
+                await pageFacebook.click('#login_form input[type="submit"]');
+                await pageFacebook.waitForNavigation();
+                await pageFacebook.goto(url);
                 log("FACEBOOK:  Logged into Facebook");            
             }
         
-            await page.waitForSelector('a>span>div');
+            await pageFacebook.waitForSelector('a>span>div');
         
             await Promise.all([
-                //page.waitForNavigation(),   // The promise resolves after navigation has finished
-                page.evaluate(function(){   // Clicking the link will indirectly cause a navigation
+                //pageFacebook.waitForNavigation(),   // The promise resolves after navigation has finished
+                pageFacebook.evaluate(function(){   // Clicking the link will indirectly cause a navigation
                     var divs = document.querySelectorAll('a>span>div');
                     for (var i = 0; i < divs.length; i++) {
                         var index = divs[i].innerHTML.indexOf('MOST RECENT');
@@ -713,8 +732,8 @@ function fetchFacebookReviews(url) {
                     return divs[i].outerHTML;                  
                 })
             ]);
-            await page.waitForSelector('#recommendations_tab_main_feed div.userContentWrapper');
-            facebookData = await page.evaluate(function(){
+            await pageFacebook.waitForSelector('#recommendations_tab_main_feed div.userContentWrapper');
+            facebookData = await pageFacebook.evaluate(function(){
                 var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
             
                 reviewData.rvwData.bizRating = document.querySelector('div._672g').textContent + ' of 5 stars';
@@ -788,11 +807,9 @@ function fetchFacebookReviews(url) {
             resolve(reviews.rvwData);
         })      
         .catch(error => {
-            if (error instanceof puppeteer.errors.TimeoutError) {
-                log('Puppeteer error: ' + error.name + ' Details: ' + error.message);
-                alertError(transporter, 'Puppeteer Facebook error: ' + error.name + ' Details: ' + error.message);
-                resolve({bizRating: "", reviewCount: "", reviews: []});
-            } 
+            log('Puppeteer error: ' + error.name + ' Details: ' + error.message);
+            alertError(transporter, 'Puppeteer Facebook error: ' + error.name + ' Details: ' + error.message);
+            resolve({bizRating: "", reviewCount: "", reviews: []});
         });
     });
     
