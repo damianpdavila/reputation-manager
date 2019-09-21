@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.4
+ * @version         1.5.5
  */
-var version_number = "1.5.4";
+var version_number = "1.5.5";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -103,6 +103,16 @@ function getBrowser(browserName) {
     })
 }
 
+function closeBrowsers() {
+    return new Promise (function(resolve, reject) {
+        (async function () {
+            await browser.close();
+        })().then(rc => {
+            log("Closed Puppeteer browser.")
+        });
+    })
+}
+
 var captureFBload = __dirname + '/facebook-load.png';
 var captureFBlogin = __dirname + '/facebook-post-login.png';
 var googleSearch = __dirname + '/google-search.html';
@@ -142,29 +152,13 @@ var msPerDay = 24*60*60*1000;  // milliseconds in a day
 var lastProcessDate = new Date();
 
 function mainLoop() {
-    log("Starting mainLoop(), running version: " + version_number + "; lastClientProcessed is: " + lastClientProcessed);
     sendRunningEmail( transporter, uptimeEmail, "Starting mainLoop(), running version: " + version_number + "; lastClientProcessed is: " + lastClientProcessed );
 
 	// === Get next client index
 	var thisClient = ++lastClientProcessed;
-	var lastClient = listConfig.client.length - 1;
-	if (thisClient > lastClient) {
-        // if processed all clients, back to first client
-        thisClient = 0;
-        // re-read the config file to pick up any changes (so don't require a restart to make changes)
-        try {
-            listConfig = JSON.parse(fs.readFileSync(configJson));
-            log("Re-read config file")
-        } catch (error) {
-            alertError(transporter, "Error: Main() Failed to re-read config file, error: " + error)
-        };
-        // and rotate the log files
-        rotateLogs();
-	};
-	log("thisClient: " + thisClient + " lastClient: " + lastClient);
-    
+    log("Starting mainLoop(), running version: " + version_number + "; lastClientProcessed is: " + lastClientProcessed + " thisClient: " + thisClient );
+
     // === Process the current client
-        
     monitorReviews(listConfig, thisClient)
         .then( function(clientProcessed){
             // === Save the last review date processed per client back into config json
@@ -180,12 +174,25 @@ function mainLoop() {
             alertError (transporter, "Error: Main() updating config file. Msg: " + error );
         })
         .then( function(){
-            // set interval such that clients are processed in equal timeslots over 24 hours (to avoid getting blacklisted by review sites)
-            interval = msPerDay / listConfig.client.length;
-            var restartTime = new Date(lastProcessDate.getTime() + interval);
-            log("Ending mainLoop(); total clients: " + listConfig.client.length + ", current time: " + lastProcessDate + " interval (minutes): " + interval/1000/60 + ", restart time: " + restartTime );
-            setTimeout( mainLoop, interval );
+            var lastClient = listConfig.client.length - 1;
+            if (thisClient == lastClient) {
+                // if processed all clients, exit the timed loop; let cron re-start the program fresh
+                closeBrowsers()
+                    .then( function() {
+                        log('Closed browsers before exiting');
+                        process.exit();
+                    });
+                log("Final exit mainLoop() => thisClient: " + thisClient + " lastClient: " + lastClient);
+            } else {
+                log("thisClient: " + thisClient + " lastClient: " + lastClient);
+                // set interval such that clients are processed in equal timeslots over 24 hours (to avoid getting blacklisted by review sites)
+                interval = msPerDay / listConfig.client.length;
+                var restartTime = new Date(lastProcessDate.getTime() + interval);
+                log("Ending mainLoop(); total clients: " + listConfig.client.length + ", current time: " + lastProcessDate + " interval (minutes): " + interval/1000/60 + ", restart time: " + restartTime );
+                setTimeout( mainLoop, interval );
+            };
         });
+    
     return true;
 };
 
@@ -195,7 +202,7 @@ getBrowser('Common')
         mainLoop();
     });
 
-log("Exited mainLoop()");
+log("End of main program flow");
 
 // ===============================  
 //  Process client config's
