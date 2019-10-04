@@ -511,7 +511,7 @@ function fetchYelpReviewsFormat2(url) {
                 var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
             
 
-                reviewData.rvwData.bizRating = document.querySelector('div.lemon--div__373c0__1mboc.i-stars__373c0__30xVZ').getAttribute("aria-label");
+                reviewData.rvwData.bizRating = document.querySelector('div.lemon--div__373c0__1mboc.i-stars__373c0__3UQrn').getAttribute("aria-label");
                 reviewData.rvwData.reviewCount = document.querySelector('div.gutter-6__373c0__zqA5A:nth-child(2) > div:nth-child(2) > p:nth-child(1)').textContent;
                 
                 var divs = document.querySelectorAll('ul.lemon--ul__373c0__1_cxs:nth-child(4) li.u-space-b3');
