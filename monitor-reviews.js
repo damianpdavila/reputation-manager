@@ -497,6 +497,8 @@ function fetchYelpReviewsFormat2(url) {
             if (pageYelp == null) {
                 pageYelp = await browserYelp.newPage();
                 log("YELP:  Created new Puppeteer page");
+                // TESTING:  uncomment and you can use console.log in the .evaluate code
+                // pageYelp.on('console', msg => log(msg.text()));
             }
         
             await pageYelp.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
@@ -511,7 +513,8 @@ function fetchYelpReviewsFormat2(url) {
                 var reviewData = {RC: 0, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
             
 
-                reviewData.rvwData.bizRating = document.querySelector('div.lemon--div__373c0__1mboc.i-stars__373c0__3UQrn').getAttribute("aria-label");
+                reviewData.rvwData.bizRating = document.querySelector('div.lemon--div__373c0__1mboc[class*="i-stars__"]').getAttribute("aria-label");
+
                 reviewData.rvwData.reviewCount = document.querySelector('div.gutter-6__373c0__zqA5A:nth-child(2) > div:nth-child(2) > p:nth-child(1)').textContent;
                 
                 var divs = document.querySelectorAll('ul.lemon--ul__373c0__1_cxs:nth-child(4) li.u-space-b3');
@@ -528,7 +531,7 @@ function fetchYelpReviewsFormat2(url) {
                     
                     divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)') 
                         == null ? a_review.date = '' : a_review.date = divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)').textContent;
-    
+
                     if (divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1)') != null) {
                         // rating
                         a_review.rating = divs[i].querySelector('div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1)').getAttribute("aria-label");
@@ -537,7 +540,8 @@ function fetchYelpReviewsFormat2(url) {
                         // error
                         a_review.rating = 'n/a';
                     }
-                    var ps = divs[i].querySelectorAll('div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > p:nth-child(1) > span:nth-child(1)');
+                    var ps = divs[i].querySelectorAll('p[class*="lemon--"] span[class*="lemon--"]:not([class*="camera"])');
+
                     a_review.description = '';
                     for (var j = 0; j < ps.length; j++) {
                         a_review.description += ps[j].textContent;    
