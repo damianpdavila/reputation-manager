@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.5
+ * @version         1.5.6
  */
-var version_number = "1.5.5";
+var version_number = "1.5.6";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -94,7 +94,15 @@ function getBrowser(browserName) {
         if (browser == null) {
             log("Creating new Puppeteer browser: " + browserName );
             
-            var puppeteerBrowser = puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']});
+            var puppeteerBrowser = puppeteer.launch({headless: true, 
+                args: [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
+                    '--window-size=1440x900'
+                ]});
             resolve(puppeteerBrowser);
         } else {
             log("Retrieved existing Puppeteer browser: " + browserName );
@@ -502,7 +510,7 @@ function fetchYelpReviewsFormat2(url) {
             }
         
             await pageYelp.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
-            await pageYelp.setViewport({width: 1280, height: 2000});
+            await pageYelp.setViewport({width: 1440, height: 2000});
         
             await pageYelp.goto(url);
         
@@ -552,6 +560,10 @@ function fetchYelpReviewsFormat2(url) {
                 return reviewData;
 
             });
+            await pageYelp.close();
+            pageYelp = null;
+            log("YELP:  Closed Puppeteer page");
+
             return yelpData;
                     
         })().then(reviews => {
@@ -708,7 +720,7 @@ function fetchFacebookReviews(url) {
             }
         
             await pageFacebook.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
-            await pageFacebook.setViewport({width: 1280, height: 2000});
+            await pageFacebook.setViewport({width: 1440, height: 2000});
         
             await pageFacebook.goto(url);
             // Check for login
@@ -807,6 +819,10 @@ function fetchFacebookReviews(url) {
                     return {RC: 1, rvwData: {bizRating: "", reviewCount: "", reviews: []}};
                 }
             });
+            await pageFacebook.close();
+            pageFacebook = null;
+            log("FACEBOOK:  Closed Puppeteer page");
+
             return facebookData;
             
         })().then(reviews => {
