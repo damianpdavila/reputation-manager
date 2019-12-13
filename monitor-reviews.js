@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.6
+ * @version         1.5.7
  */
-var version_number = "1.5.6";
+var version_number = "1.5.7";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -661,11 +661,12 @@ function fetchGoogleReviews(url, bizName, bizAddress) {
                 
                 for (var index in response.details) {
                     reviewData.bizRating = response.details[index].result.rating.toString() + ' of 5 stars';
+                    // 12-12-2019: property was reinstated
                     // 5-26-2016: Google removed this property from the Places API; no replacement avail easily so omit for now
                     // official: https://code.google.com/p/gmaps-api-issues/issues/detail?id=3484#makechanges
                     // found in: https://stackoverflow.com/questions/37419487/user-ratings-total-no-longer-available-in-google-places-api-alternative-for-get
-                    // reviewData.reviewCount = response.details[index].result.user_ratings_total.toString();
-                    reviewData.reviewCount = "n/a";
+                    reviewData.reviewCount = response.details[index].result.user_ratings_total.toString();
+                    // reviewData.reviewCount = "n/a";
                     for (var idx in response.details[index].result.reviews){
                         var a_review = {};
                         a_review.author = response.details[index].result.reviews[idx].author_name;
