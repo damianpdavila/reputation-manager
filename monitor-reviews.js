@@ -523,7 +523,7 @@ function fetchYelpReviewsFormat2(url) {
                 var reviewData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
 
 
-                reviewData.rvwData.bizRating = document.querySelector('.i-stars--large-4__373c0__1d6HV').getAttribute("aria-label");
+                reviewData.rvwData.bizRating = document.querySelector('[class*="i-stars--large"]').getAttribute("aria-label");
 
                 reviewData.rvwData.reviewCount = document.querySelector('div.gutter-1-5__373c0__2vL-3:nth-child(2) > div:nth-child(2) > p:nth-child(1)').textContent;
 
