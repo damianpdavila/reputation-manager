@@ -96,6 +96,7 @@ function getBrowser(browserName) {
 
             var puppeteerBrowser = puppeteer.launch({
                 headless: true,
+                devtools: false,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -739,7 +740,8 @@ function fetchFacebookReviews(url) {
             await pageFacebook.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3419.0 Safari/537.36');
             await pageFacebook.setViewport({ width: 1440, height: 2000 });
 
-            await pageFacebook.goto(url);
+            await pageFacebook.goto(url, { timeout: 60000 });
+
             // Check for login
             facebookLogin = null;
             facebookLogin = await pageFacebook.$('form#login_form input#email');
@@ -750,10 +752,28 @@ function fetchFacebookReviews(url) {
                 await pageFacebook.type('form#login_form input#email', 'ohoapp@onehandoff.com');
                 await pageFacebook.waitForSelector('form#login_form input#pass');
                 await pageFacebook.type('form#login_form input#pass', 'd03p29d64oho');
-                await pageFacebook.click('#login_form input[type="submit"]');
-                await pageFacebook.waitForNavigation();
-                await pageFacebook.goto(url);
+                const [response] = await Promise.all([
+                    pageFacebook.waitForNavigation({
+                        waitUntil: ["load"],
+                        timeout: 60000
+                    }),
+                    pageFacebook.click('#login_form input[type="submit"]')
+                ]);
+                //await pageFacebook.click('#login_form input[type="submit"]');
+                //await pageFacebook.waitForNavigation();
+                //await pageFacebook.goto(url);
                 log("FACEBOOK:  Logged into Facebook");
+            }
+
+            /** 5/22/2020:  Facebook transitioning to new page format; using new wrapper and inserting old content in an iframe.
+             *  Can't scrape inside iframe so will disable for now.
+             *  Once iframe is gone, will throw error and I can use as a trigger/reminder to come back here and re-map all fields.
+             */
+            //await pageFacebook.screenshot({ path: 'screenshot.png', fullPage: true });
+            var iframeFB = await pageFacebook.waitForSelector('iframe[src*="https://www.facebook.com/"]', { timeout: 60000 });
+            if (iframeFB != null) {
+                facebookData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
+                return facebookData;
             }
 
             await pageFacebook.waitForSelector('a>span>div');
