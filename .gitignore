@@ -10,6 +10,8 @@ review-config.json
 review-config-bkup.json
 app-config.json
 uptime-config.json
+*.png
+*.jpg
 
 # Logs
 logs
