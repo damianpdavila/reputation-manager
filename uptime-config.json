@@ -1,24 +1,18 @@
 {
-  "client": [
-    {
-      "clientName": "Healing Paws Center",
-      "url": "https://healingpawsfl.com"
-    },
-    {
-      "clientName": "World Assn of TCVM",
-      "url": "https://watcvm.org"
-    },
-    {
-      "clientName": "Cookies by Valerie",
-      "url": "http://cookiesbyvalerie.com"
-    },
-    {
-      "clientName": "OHO Healing Paws",
-      "url": "https://onehandoff.com/healingpawsfl/reqreview/"
-    },
-    {
-      "clientName": "Elect Dr. Flore 2020",
-      "url": "https://electmarieflore2020.com/"
-    }
-  ]
+    "client": [{
+            "clientName": "Healing Paws Center",
+            "title": "Healing Paws Center | Holistic Vet in Fort Lauderdale, FL",
+            "url": "https://healingpawsfl.com"
+        },
+        {
+            "clientName": "World Assn of TCVM",
+            "title": "Home",
+            "url": "https://watcvm.org"
+        },
+        {
+            "clientName": "OHO Healing Paws",
+            "title": "Request a Review - OHO Healing Paws Center",
+            "url": "https://onehandoff.com/healingpawsfl/reqreview/"
+        }
+    ]
 }
