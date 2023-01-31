@@ -12,5 +12,8 @@
     "puppeteer": "^1.16.0",
     "request": "^2.88.0",
     "x-ray": "^2.3.3"
+  },
+  "devDependencies": {
+    "pending-xhr-puppeteer": "^2.3.2"
   }
 }
