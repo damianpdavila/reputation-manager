@@ -59,8 +59,6 @@ var xray = Xray({
     }
 });
 
-// var GoogleLocations = require('google-locations');
-// var locations = new GoogleLocations('AIzaSyCkSNYioETcCDZPvWZ8meZLpeEzA4rUqAE');
 
 // var path = require('path');
 // var childProcess = require('child_process');
