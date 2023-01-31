@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.7
+ * @version         1.5.9
  */
-var version_number = "1.5.7";
+var version_number = "1.5.9";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -95,10 +95,8 @@ function getBrowser(browserName) {
             log("Creating new Puppeteer browser: " + browserName);
 
             var puppeteerBrowser = puppeteer.launch({
-                headless: false,
-                devtools: true,
-                //headless: true,
-                //devtools: false,
+                headless: true,
+                devtools: false,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -703,7 +701,7 @@ function fetchGoogleReviews(url, bizName, bizAddress) {
                 alertError(transporter, "Error: fetchGoogleReviews(). Msg: Uncaught exception: " + error);
                 reviewData = { bizRating: "", reviewCount: "", reviews: [] };
             }
-            //log("resolve fetchGoogleReviews, reviewData=" + reviewData); //TESTING
+            //log("resolve fetchGoogleReviews, reviewData=" + JSON.stringify(reviewData)); //TESTING
             resolve(reviewData);
         });
     });
@@ -772,49 +770,28 @@ function fetchFacebookReviews(url) {
              *  Once iframe is gone, will throw error and I can use as a trigger/reminder to come back here and re-map all fields.
              */
             //await pageFacebook.screenshot({ path: 'screenshot.png', fullPage: true });
-            //var iframeFB = await pageFacebook.waitForSelector('iframe[src*="https://www.facebook.com/"]', { timeout: 60000 });
-            //if (iframeFB != null) {
-            //    facebookData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
-            //    return facebookData;
-            //}
+            var iframeFB = await pageFacebook.waitForSelector('iframe[src*="https://www.facebook.com/"]', { timeout: 60000 });
+            if (iframeFB != null) {
+                facebookData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
+                return facebookData;
+            }
 
             await pageFacebook.waitForSelector('a>span>div');
 
             await Promise.all([
                 //pageFacebook.waitForNavigation(),   // The promise resolves after navigation has finished
                 pageFacebook.evaluate(function() { // Clicking the link will indirectly cause a navigation
-
-                    var sortOrderButton = Array.from(document.querySelectorAll('div span')).find(el => el.textContent === 'Most Helpful');
-                    if (typeof sortOrderButton !== 'undefined') {
-                        sortOrderButton.click();
+                    var divs = document.querySelectorAll('a>span>div');
+                    for (var i = 0; i < divs.length; i++) {
+                        var index = divs[i].innerHTML.indexOf('MOST RECENT');
+                        if (index != -1) {
+                            divs[i].click();
+                            break;
+                        }
                     }
                     return divs[i].outerHTML;
-
-                    //var divs = document.querySelectorAll('a>span>div');
-                    //for (var i = 0; i < divs.length; i++) {
-                    //    var index = divs[i].innerHTML.indexOf('MOST RECENT');
-                    //    if (index != -1) {
-                    //        divs[i].click();
-                    //        break;
-                    //    }
-                    //}
-                    //return divs[i].outerHTML;
                 })
             ]);
-            await Promise.all([
-
-                pageFacebook.evaluate(function() { // Clicking the link will indirectly cause a navigation
-
-                    var sortOrderButton = Array.from(document.querySelectorAll('div span')).find(el => el.textContent === 'Most Recent');
-                    if (typeof sortOrderButton !== 'undefined') {
-                        sortOrderButton.click();
-                    }
-                    return divs[i].outerHTML;
-
-                })
-            ]);
-            //===================================================>
-
             await pageFacebook.waitForSelector('#recommendations_tab_main_feed div.userContentWrapper');
             facebookData = await pageFacebook.evaluate(function() {
                 var reviewData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
