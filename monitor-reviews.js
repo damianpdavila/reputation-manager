@@ -7,9 +7,9 @@
  * 
  * @fileOverview    Retrieves latest reviews from social and review sites
  * @author          Damian Davila (Moventis, LLC)
- * @version         1.5.8
+ * @version         1.5.7
  */
-var version_number = "1.5.8";
+var version_number = "1.5.7";
 
 var fs = require('fs');
 var configJson = __dirname + '/review-config.json';
@@ -83,7 +83,6 @@ var locations = new GoogleLocations(appConfig.google.locationsApiKey);
  *  Puppeteer uses Chromium and seems to work (at least so far).
  */
 const puppeteer = require('puppeteer');
-const { captureRejectionSymbol } = require('events');
 let browser = null;
 let pageFacebook = null;
 let pageYelp = null;
@@ -98,7 +97,6 @@ function getBrowser(browserName) {
             var puppeteerBrowser = puppeteer.launch({
                 headless: false,
                 devtools: true,
-                //TEST
                 //headless: true,
                 //devtools: false,
                 args: [
@@ -127,8 +125,6 @@ function closeBrowsers() {
         });
     })
 }
-
-const { PendingXHR } = require('pending-xhr-puppeteer');
 
 var captureFBload = __dirname + '/facebook-load.png';
 var captureFBlogin = __dirname + '/facebook-post-login.png';
@@ -757,7 +753,7 @@ function fetchFacebookReviews(url) {
                 await pageFacebook.waitForSelector('form#login_form input#email');
                 await pageFacebook.type('form#login_form input#email', 'ohoapp@onehandoff.com');
                 await pageFacebook.waitForSelector('form#login_form input#pass');
-                await pageFacebook.type('form#login_form input#pass', 'd03p29d64oho!');
+                await pageFacebook.type('form#login_form input#pass', 'd03p29d64oho');
                 const [response] = await Promise.all([
                     pageFacebook.waitForNavigation({
                         waitUntil: ["load"],
@@ -770,192 +766,122 @@ function fetchFacebookReviews(url) {
                 //await pageFacebook.goto(url);
                 log("FACEBOOK:  Logged into Facebook");
             }
-            //TEST
-            //await pageFacebook.waitForSelector('div.qmfd67dx:nth-child(2)');  // cursory check if reviews loaded
-            await pageFacebook.waitForSelector('.pwkaztap > div:nth-child(1)'); // cursory check if review order box is loaded
-            //await pageFacebook.waitForNavigation();
 
-            /////////////////////////////
+            /** 5/22/2020:  Facebook transitioning to new page format; using new wrapper and inserting old content in an iframe.
+             *  Can't scrape inside iframe so will disable for now.
+             *  Once iframe is gone, will throw error and I can use as a trigger/reminder to come back here and re-map all fields.
+             */
+            //await pageFacebook.screenshot({ path: 'screenshot.png', fullPage: true });
+            //var iframeFB = await pageFacebook.waitForSelector('iframe[src*="https://www.facebook.com/"]', { timeout: 60000 });
+            //if (iframeFB != null) {
+            //    facebookData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
+            //    return facebookData;
+            //}
 
-            //FAcebook started showing the old format again in the debug session.
-
-            //Need to pull in the old code again and do the FB1 FB2 logic like we did for Yelp.
-
-            /////////////////////////////
-
-            // Ensure reviews are in "most recent" order
-            // Changing sort order triggers ajax/XHR requests; monitor for all to finish before scraping reviews otherwise causes lots of issues
-            const pendingXHR = new PendingXHR(pageFacebook);
+            await pageFacebook.waitForSelector('a>span>div');
 
             await Promise.all([
-                pageFacebook.evaluate(function() {
-                    var divs = document.querySelectorAll('.pwkaztap > div:nth-child(1)');
-                    for (var i = 0; i < divs.length; i++) {
-                        var index = divs[i].textContent.toLowerCase().indexOf('most helpful');
-                        if (index != -1) {
+                //pageFacebook.waitForNavigation(),   // The promise resolves after navigation has finished
+                pageFacebook.evaluate(function() { // Clicking the link will indirectly cause a navigation
 
-                            // Set up observer for hidden menu item and click it when appears
-                            var observer = new MutationObserver(function(mutations) {
-                                if (document.querySelector('.q5bimw55 > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1)')) {
-                                    //TEST
-                                    console.log('clicking hidden most recent sort');
-
-                                    document.querySelector('.q5bimw55 > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1)').click();
-                                    observer.disconnect();
-                                    // TEST
-                                    return new Promise(resolve => { resolve(true) });
-                                }
-                            });
-                            observer.observe(document.body, { childList: true, subtree: true });
-
-                            //TEST
-                            console.log('clicking sort order');
-
-                            // click the to show hidden item
-                            divs[i].click();
-                            break;
-                        }
+                    var sortOrderButton = Array.from(document.querySelectorAll('div span')).find(el => el.textContent === 'Most Helpful');
+                    if (typeof sortOrderButton !== 'undefined') {
+                        sortOrderButton.click();
                     }
-                    //return;
+                    return divs[i].outerHTML;
+
+                    //var divs = document.querySelectorAll('a>span>div');
+                    //for (var i = 0; i < divs.length; i++) {
+                    //    var index = divs[i].innerHTML.indexOf('MOST RECENT');
+                    //    if (index != -1) {
+                    //        divs[i].click();
+                    //        break;
+                    //    }
+                    //}
+                    //return divs[i].outerHTML;
                 })
-            ]).then(() => {
-                //TEST
-                console.log('waiting for XHR sort ordering');
-                pageFacebook.evaluate(() => console.log('waiting for XHR sort ordering'));
+            ]);
+            await Promise.all([
 
-                // Changing sort order triggers ajax/XHR requests; wait for all to finish before scraping reviews otherwise causes lots of issues
-                Promise.race([
-                    pendingXHR.waitForAllXhrFinished()
-                ]);
-            }).then(() => {
+                pageFacebook.evaluate(function() { // Clicking the link will indirectly cause a navigation
 
-                //TEST
-                console.log('exited sort ordering');
-                pageFacebook.evaluate(() => console.log('exited sort ordering'));
-
-                //await pageFacebook.waitForNavigation();
-
-                //await pageFacebook.waitForSelector('div.qmfd67dx:nth-child(2)');  // cursory check if reviews (re-)loaded
-
-                //TEST
-                console.log('waitforfunction starting...');
-                pageFacebook.evaluate(() => console.log('waitforfunction starting...'));
-
-                //Wait for reviews to be sorted
-                pageFacebook.waitForFunction(
-                    "document.querySelector('.cp6p5cpd > span:nth-child(1)').textContent.trim().toLowerCase().includes('most recent')"
-                );
-                //TEST
-                console.log('done waiting for sorting, sort label is: ');
-                console.log(pageFacebook.$eval('.cp6p5cpd > span:nth-child(1)', el => el.textContent));
-                pageFacebook.evaluate(() => console.log("sort label: " + document.querySelector('.cp6p5cpd > span:nth-child(1)').textContent));
-
-            }).then(() => {
-                pageFacebook.evaluate(function() {
-                    var reviewData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
-
-                    reviewData.rvwData.bizRating = document.querySelector('span.o3w64lxj:nth-child(2)').textContent.split(' out of ')[0] + ' of 5 stars';
-                    // Pull the review count out of the string: 'Based on the opinion of NN,NNN people'
-                    reviewData.rvwData.reviewCount = document.querySelector('.fp4oknrt > span:nth-child(1)').textContent;
-                    var rexp = /(\d+(\,\d*)*)/i;
-                    var str = document.querySelector('.fp4oknrt > span:nth-child(1)').textContent;
-                    if (str == null) {
-                        reviewData.rvwData.reviewCount = "";
-                    } else {
-                        reviewData.rvwData.reviewCount = str.match(rexp)[0];
+                    var sortOrderButton = Array.from(document.querySelectorAll('div span')).find(el => el.textContent === 'Most Recent');
+                    if (typeof sortOrderButton !== 'undefined') {
+                        sortOrderButton.click();
                     }
+                    return divs[i].outerHTML;
 
-                    let RATING_IMAGES = new Map();
-                    RATING_IMAGES.set('yobkOuH5sp5.png', '1');
-                    RATING_IMAGES.set('YynyTZKXqmO.png', '2');
-                    RATING_IMAGES.set('fQ06bIPQzsO.png', '3');
-                    RATING_IMAGES.set('Zj_NWeRj13k.png', '4');
-                    RATING_IMAGES.set('iak8abyXTlp.png', '5');
+                })
+            ]);
+            //===================================================>
 
-                    // Validate that reviews are sorted into "most recent" order
-                    if (document.querySelector('.cp6p5cpd > span:nth-child(1)').textContent.trim().toLowerCase() == 'most recent') {;
-                    } else {
-                        //TEST
-                        console.log("order button text:" + document.querySelector('.cp6p5cpd > span:nth-child(1)').textContent.trim().toLowerCase());
-                        //alertError(transporter, "Error: fetchFacebookReviews(). Not in most recent order");
-                        return { RC: 1, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
-                    }
+            await pageFacebook.waitForSelector('#recommendations_tab_main_feed div.userContentWrapper');
+            facebookData = await pageFacebook.evaluate(function() {
+                var reviewData = { RC: 0, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
 
-                    var divs = document.querySelectorAll('div.sjgh65i0');
+                reviewData.rvwData.bizRating = document.querySelector('div._672g').textContent + ' of 5 stars';
+                // Pull the review count out of the string: 'Based on the opinion of NN,NNN people'
+                reviewData.rvwData.reviewCount = document.querySelector('span._67l2').textContent;
+                var rexp = /(\d+(\,\d*)*)/i;
+                var str = document.querySelector('span._67l2').textContent;
+                if (str == null) {
+                    reviewData.rvwData.reviewCount = "";
+                } else {
+                    reviewData.rvwData.reviewCount = str.match(rexp)[0];
+                }
+
+                // Validate that reviews are sorted into "most recent" order
+                if (document.querySelector('li a[aria-selected="true"] span > div').textContent.trim() == 'MOST RECENT') {
+
+                    var divs = document.querySelectorAll('#recommendations_tab_main_feed div.userContentWrapper');
                     if (divs.length == 0) {
                         reviewData.RC = 2;
                         reviewData.rvwData = "";
                         return reviewData;
                     }
-                    //TEST
-                    console.log("total reviews: " + divs.length.toString())
-
-                    // roll through up to 15 reviews (just to save time and avoid lazy loading issues)
-                    for (var i = 0; i < divs.length || i < 15; i++) {
-                        //TEST
-                        console.log("current div: " + i.toString());
-                        //TEST
-
+                    for (var i = 0; i < divs.length; i++) {
                         var a_review = {};
-                        divs[i].querySelector('h2 a div.nc684nl6 span') == null ? a_review.author = 'n/a' : a_review.author = divs[i].querySelector('h2 a div.nc684nl6 span').textContent;
-
-                        //TEST
-                        console.log("author:" + a_review.author);
-
-                        // Some formats contain time but no year, e.g. July 22 at 6:00pm, so strip out time and append year
-                        a_review.date = divs[i].querySelectorAll('div.qzhwtbm6.knvmm38d')[1].querySelector('a span').textContent.split(' at ')[0];
-                        if (divs[i].querySelectorAll('div.qzhwtbm6.knvmm38d')[1].querySelector('a span').textContent.split(' at ')[1] != null) {
-                            a_review.date += ', ' + new Date().getFullYear();
-                        }
-                        //TEST
-                        console.log("date:" + a_review.date);
-
+                        divs[i].querySelector('span.fcg span.fwb .profileLink') == null ? a_review.author = 'n/a' : a_review.author = divs[i].querySelector('span.fcg span.fwb .profileLink').textContent;
+                        divs[i].querySelector('span span a abbr[data-utime]') == null ? a_review.date = '' : a_review.date = parseInt(divs[i].querySelector('span span a abbr[data-utime]').getAttribute('data-utime'), 10) * 1000;
 
                         // determine if review is a numerical star rating or a yes/no recommendation
 
                         // NOTE: the recomm/not recomm logic is currently based on literal:  "recommends", "recommended", "doesn't Recommend"; crappy but no other reliable way
 
-                        if (divs[i].querySelector('h2').innerText != null && divs[i].querySelector('h2').innerText.indexOf('recommend') != -1) {
-                            if (divs[i].querySelector('h2').innerText.indexOf('doesn') == -1) {
+                        if (divs[i].querySelector('span.fcg > span.fwb + i') != null) {
+                            if (divs[i].querySelector('span.fcg > span.fwb + i').nextSibling.textContent.indexOf('does') == -1) {
                                 // recommended
                                 a_review.rating = '6';
                             } else {
                                 // not recommended
                                 a_review.rating = '0';
                             }
-                        } else if (divs[i].querySelector('h2').innerText != null && divs[i].querySelector('h2').innerText.indexOf('reviewed') != -1) {
+                        } else if (divs[i].querySelector('a+i>u') != null) {
                             // rating
-                            a_review.rating = RATING_IMAGES.get(divs[i].querySelector('h2 img').attributes.src.value.trim().slice(-15));
+                            a_review.rating = divs[i].querySelector('a+i>u').textContent;
                         } else {
                             // error
                             a_review.rating = 'n/a';
                         }
-
-                        //TEST
-                        console.log("rating:" + a_review.rating);
-
-
-                        a_review.description = divs[i].querySelector('div.kvgmc6g5.cxmmr5t8.oygrvhab.hcukyx3x.c1et5uql.ii04i59q').textContent.trim();
-
-                        //TEST
-                        console.log("description:" + a_review.description);
-
-
+                        var ps = divs[i].querySelectorAll('div.userContent p');
+                        a_review.description = '';
+                        for (var j = 0; j < ps.length; j++) {
+                            a_review.description += ps[j].textContent;
+                        }
                         reviewData.rvwData.reviews.push(a_review);
                     }
 
                     return reviewData;
-                })
-
-            }).then(facebookData => {
-
-                pageFacebook.close();
-                pageFacebook = null;
-                log("FACEBOOK:  Closed Puppeteer page");
-
-                resolve(facebookData);
-
+                } else {
+                    alertError(transporter, "Error: fetchFacebookReviews(). Not in most recent order");
+                    return { RC: 1, rvwData: { bizRating: "", reviewCount: "", reviews: [] } };
+                }
             });
+            await pageFacebook.close();
+            pageFacebook = null;
+            log("FACEBOOK:  Closed Puppeteer page");
+
+            return facebookData;
 
         })().then(reviews => {
                 if (reviews.RC > 0) {
