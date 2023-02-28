@@ -1331,8 +1331,8 @@ async function formatReviewData(
 
         var priorOhoReviewsOrig = await getOhoReviews(clientUrlName, siteName, 20);
         let priorOhoReviewsStripped = priorOhoReviewsOrig.map((review) => {
-            //strip off html tags and newlines
-            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "");
+            //strip off html tags and newlines and some html entities (need to improve this to include all html entities)
+            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
         });
         let priorOhoReviewsJoined = priorOhoReviewsOrig.map((review) => {
             return review.content.rendered.trim().toLowerCase();
@@ -1345,7 +1345,7 @@ async function formatReviewData(
 
         keyIdx.forEach(function (review) {
             reviewPrevProcessed = false;
-            let currReview = reviewData.reviews[review].description.trim().toLowerCase().replaceAll("\n", "");
+            let currReview = reviewData.reviews[review].description.trim().toLowerCase().replaceAll("\n", "").replaceAll(" ", "");
 
             //if currReview is empty need to match on author name or something else since null will match everything
             if (currReview === null || currReview.length === 0) {
