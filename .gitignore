@@ -10,8 +10,14 @@ review-config.json
 review-config-bkup.json
 app-config.json
 uptime-config.json
+draw_review.js
+draw-and-email-canvas.js
+*.txt
+monitor-reviews26Jan2021.js
+monitor-reviews30Jan2023.js
 *.png
 *.jpg
+package-lock.json
 
 # Logs
 logs
