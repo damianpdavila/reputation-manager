@@ -33,6 +33,8 @@ var log = function (msg) {
     }
 };
 
+log('node version' + JSON.stringify(process.versions));
+
 var Promise = require('bluebird');
 var request = require('request');
 
@@ -1332,8 +1334,11 @@ async function formatReviewData(
         var priorOhoReviewsOrig = await getOhoReviews(clientUrlName, siteName, 20);
         let priorOhoReviewsStripped = priorOhoReviewsOrig.map((review) => {
             //strip off html tags and newlines and some html entities (need to improve this to include all html entities)
-            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
+            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&#8217;", "'");
         });
+
+        console.log('prior: ', JSON.stringify(priorOhoReviewsStripped));
+
         let priorOhoReviewsJoined = priorOhoReviewsOrig.map((review) => {
             return review.content.rendered.trim().toLowerCase();
         });
@@ -1358,19 +1363,21 @@ async function formatReviewData(
                 if (authorFound != null && authorFound.length > 0) {
                     // previously sent based on finding author name so skip now
                     reviewPrevProcessed = true;
-                    log('Review duplicate, author:', currAuthor);
+                    log('Review duplicate, author:' + currAuthor);
                 } else {
-                    log('Review no duplicate, author:', currAuthor);
+                    log('Review no duplicate, author:' + currAuthor);
                 }
                 
             } else {
 
+                console.log('curr: ', currReview);
+
                 if (priorOhoReviewsStripped.some(priorReview => priorReview.includes(currReview))) {
                     // previously sent to OHO so skip now
                     reviewPrevProcessed = true;
-                    log('Review duplicate, review:', currReview);
+                    log('Review duplicate, review:' + currReview);
                 } else {
-                    log('Review no duplicate, review:', currReview);
+                    log('Review no duplicate, review:' + currReview);
                 }
     
     
