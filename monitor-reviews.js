@@ -1334,7 +1334,8 @@ async function formatReviewData(
         var priorOhoReviewsOrig = await getOhoReviews(clientUrlName, siteName, 20);
         let priorOhoReviewsStripped = priorOhoReviewsOrig.map((review) => {
             //strip off html tags and newlines and some html entities (need to improve this to include all html entities)
-            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&#8217;", "'");
+            //return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&#8217;", "'");
+            return review.content.rendered.trim().toLowerCase().replace(/(<([^>]+)>)/gi, "").replaceAll("\n", "").replaceAll(" ", "").replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&#8217;", "'").replace(/&#\d+;/gmi, "").replace(/[^a-z0-9]/gmi, "");
         });
 
         console.log('prior: ', JSON.stringify(priorOhoReviewsStripped));
@@ -1350,7 +1351,8 @@ async function formatReviewData(
 
         keyIdx.forEach(function (review) {
             reviewPrevProcessed = false;
-            let currReview = reviewData.reviews[review].description.trim().toLowerCase().replaceAll("\n", "").replaceAll(" ", "");
+            //let currReview = reviewData.reviews[review].description.trim().toLowerCase().replaceAll("\n", "").replaceAll(" ", "");
+            let currReview = reviewData.reviews[review].description.trim().toLowerCase().replaceAll("\n", "").replace(/[^a-z0-9]/gmi, "");
 
             //if currReview is empty need to match on author name or something else since null will match everything
             if (currReview === null || currReview.length === 0) {
@@ -1370,7 +1372,7 @@ async function formatReviewData(
                 
             } else {
 
-                console.log('curr: ', currReview);
+                console.log('curr:', currReview);
 
                 if (priorOhoReviewsStripped.some(priorReview => priorReview.includes(currReview))) {
                     // previously sent to OHO so skip now
